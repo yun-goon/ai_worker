@@ -110,6 +110,46 @@ ament_target_dependencies(realtime_ik_solver_jl
   orocos_kdl
 )
 
+# Realtime IK Solver Arm Only executable
+add_executable(realtime_ik_solver_arm_only src/realtime_ik_solver_arm_only.cpp)
+
+target_include_directories(realtime_ik_solver_arm_only PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+target_compile_features(realtime_ik_solver_arm_only PUBLIC c_std_99 cxx_std_17)
+
+ament_target_dependencies(realtime_ik_solver_arm_only
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  std_msgs
+  trajectory_msgs
+  kdl_parser
+  urdf
+  orocos_kdl
+)
+
+# Realtime IK Solver Interpolation executable
+add_executable(realtime_ik_solver_interpolation src/realtime_ik_solver_interpolation.cpp)
+
+target_include_directories(realtime_ik_solver_interpolation PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+target_compile_features(realtime_ik_solver_interpolation PUBLIC c_std_99 cxx_std_17)
+
+ament_target_dependencies(realtime_ik_solver_interpolation
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  std_msgs
+  trajectory_msgs
+  kdl_parser
+  urdf
+  orocos_kdl
+)
+
 # Pinocchio IK Solver executable
 add_executable(pinocchio_ik_solver src/pinocchio_ik_solver.cpp)
 
@@ -132,7 +172,7 @@ ament_target_dependencies(pinocchio_ik_solver
 target_link_libraries(pinocchio_ik_solver pinocchio::pinocchio)
 
 # Install C++ executables
-install(TARGETS kdl_ik_solver_cpp realtime_ik_solver target_pose_publisher ik_solver_comparison realtime_ik_solver_jl pinocchio_ik_solver
+install(TARGETS kdl_ik_solver_cpp realtime_ik_solver target_pose_publisher ik_solver_comparison realtime_ik_solver_jl realtime_ik_solver_arm_only realtime_ik_solver_interpolation pinocchio_ik_solver
   DESTINATION lib/${PROJECT_NAME})
 
 
