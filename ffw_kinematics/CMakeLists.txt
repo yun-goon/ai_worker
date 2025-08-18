@@ -16,6 +16,7 @@ find_package(kdl_parser REQUIRED)
 find_package(urdf REQUIRED)
 find_package(orocos_kdl REQUIRED)
 find_package(pinocchio REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 # C++ executables
 add_executable(kdl_ik_solver_cpp src/kdl_ik_solver.cpp)
@@ -168,11 +169,29 @@ ament_target_dependencies(pinocchio_ik_solver
   urdf
 )
 
+
+# VR Hand Pose Transformer executable
+add_executable(vr_hand_pose_transformer src/vr_hand_pose_transformer.cpp)
+
+target_include_directories(vr_hand_pose_transformer PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+target_compile_features(vr_hand_pose_transformer PUBLIC c_std_99 cxx_std_17)
+
+ament_target_dependencies(vr_hand_pose_transformer
+  rclcpp
+  geometry_msgs
+)
+
 # Link Pinocchio manually (since it might not have proper CMake integration in ROS2)
 target_link_libraries(pinocchio_ik_solver pinocchio::pinocchio)
 
+# Link Eigen3 to VR hand pose transformer
+target_link_libraries(vr_hand_pose_transformer Eigen3::Eigen)
+
 # Install C++ executables
-install(TARGETS kdl_ik_solver_cpp realtime_ik_solver target_pose_publisher ik_solver_comparison realtime_ik_solver_jl realtime_ik_solver_arm_only realtime_ik_solver_interpolation pinocchio_ik_solver
+install(TARGETS kdl_ik_solver_cpp realtime_ik_solver target_pose_publisher ik_solver_comparison realtime_ik_solver_jl pinocchio_ik_solver vr_hand_pose_transformer
   DESTINATION lib/${PROJECT_NAME})
 
 
