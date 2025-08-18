@@ -151,6 +151,26 @@ ament_target_dependencies(realtime_ik_solver_interpolation
   orocos_kdl
 )
 
+# VR Safe IK Solver executable
+add_executable(vr_safe_ik_solver src/vr_safe_ik_solver.cpp)
+
+target_include_directories(vr_safe_ik_solver PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+target_compile_features(vr_safe_ik_solver PUBLIC c_std_99 cxx_std_17)
+
+ament_target_dependencies(vr_safe_ik_solver
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  std_msgs
+  trajectory_msgs
+  kdl_parser
+  urdf
+  orocos_kdl
+)
+
 # Pinocchio IK Solver executable
 add_executable(pinocchio_ik_solver src/pinocchio_ik_solver.cpp)
 
@@ -191,7 +211,7 @@ target_link_libraries(pinocchio_ik_solver pinocchio::pinocchio)
 target_link_libraries(vr_hand_pose_transformer Eigen3::Eigen)
 
 # Install C++ executables
-install(TARGETS kdl_ik_solver_cpp realtime_ik_solver target_pose_publisher ik_solver_comparison realtime_ik_solver_jl pinocchio_ik_solver vr_hand_pose_transformer
+install(TARGETS kdl_ik_solver_cpp realtime_ik_solver target_pose_publisher ik_solver_comparison realtime_ik_solver_jl realtime_ik_solver_arm_only realtime_ik_solver_interpolation vr_safe_ik_solver pinocchio_ik_solver vr_hand_pose_transformer
   DESTINATION lib/${PROJECT_NAME})
 
 

@@ -400,6 +400,19 @@ private:
         }
 
         if (ik_result >= 0) {
+            // Joint 변화량 체크 (VR 안전성을 위해)
+            bool safe_movement = true;
+            double max_joint_change = 0.8; // 0.8 라디안 (약 45도) 제한
+            
+            for (unsigned int i = 0; i < q_result.rows(); i++) {
+                double change = std::abs(q_result(i) - current_joint_positions_[i]);
+                if (change > max_joint_change) {
+                    RCLCPP_WARN(this->get_logger(), "⚠️ Joint %d change too large: %.3f rad (%.1f°)", 
+                               i, change, change * 180.0 / M_PI);
+                    safe_movement = false;
+                }
+            }
+            
             // Verify all joints are within limits
             bool all_within_limits = true;
             for (unsigned int i = 0; i < q_result.rows(); i++) {
@@ -414,40 +427,63 @@ private:
                 RCLCPP_ERROR(this->get_logger(), "❌ IK solution violates joint limits! Skipping movement.");
                 return;
             }
+            
+            if (!safe_movement) {
+                RCLCPP_ERROR(this->get_logger(), "❌ Movement rejected: unsafe joint changes for VR control");
+                return;
+            }
+
+            // 결과 조인트 위치 로그
+            std::string result_log = "✅ IK solution: [";
+            for (unsigned int i = 0; i < q_result.rows(); i++) {
+                result_log += std::to_string(q_result(i));
+                if (i < q_result.rows() - 1) result_log += ", ";
+            }
+            result_log += "]";
+            RCLCPP_INFO(this->get_logger(), "%s", result_log.c_str());
 
             RCLCPP_INFO(this->get_logger(), "✅ Arm-only IK solution found with Joint Limits. Moving robot...");
-
-            // Log joint solution
-            std::string solution_log = "🎯 Arm joint solution: [";
-            for (size_t i = 0; i < joint_names_.size(); i++) {
-                solution_log += joint_names_[i] + "=" + std::to_string(q_result(i));
-                if (i < joint_names_.size() - 1) solution_log += ", ";
-            }
-            solution_log += "]";
-            RCLCPP_INFO(this->get_logger(), "%s", solution_log.c_str());
 
             // Send joint trajectory command to move the robot
             sendJointTrajectory(q_result);
 
         } else {
-            // Provide detailed error information
-            std::string error_msg;
-            switch(ik_result) {
-                case -1: error_msg = "Failed to converge"; break;
-                case -2: error_msg = "Undefined problem"; break;
-                case -3: error_msg = "Degraded gradient"; break;
-                case -4: error_msg = "Singularity detected"; break;
-                case -5: error_msg = "Maximum iterations exceeded"; break;
-                default: error_msg = "Unknown error"; break;
-            }
-
-            RCLCPP_ERROR(this->get_logger(), "❌ Arm-only IK with Joint Limits failed: %d (%s)", ik_result, error_msg.c_str());
+            RCLCPP_ERROR(this->get_logger(), "❌ Arm-only IK failed: %d", ik_result);
             
-            // Additional failure analysis
+            // 실패 원인 분석
             if (ik_result == -5) {
-                RCLCPP_ERROR(this->get_logger(), "  → Target may be unreachable for arm-only configuration");
-            } else if (ik_result == -3 || ik_result == -4) {
-                RCLCPP_ERROR(this->get_logger(), "  → Robot is in or near a singularity");
+                RCLCPP_ERROR(this->get_logger(), "  → Maximum iterations exceeded (1000). Target may be unreachable or too far.");
+            } else if (ik_result == -3) {
+                RCLCPP_ERROR(this->get_logger(), "  → Singularity detected. Robot is in a difficult pose.");
+            }
+            
+            // 더 나은 초기값으로 재시도
+            RCLCPP_WARN(this->get_logger(), "🔄 Trying with home position as initial guess...");
+            KDL::JntArray q_home(chain_.getNrOfJoints());
+            for (unsigned int i = 0; i < q_home.rows(); i++) {
+                q_home(i) = 0.0;  // 홈 포지션
+            }
+            
+            int retry_result = ik_solver_jl_->CartToJnt(q_home, target_frame, q_result);
+            if (retry_result >= 0) {
+                // 재시도 성공 시에도 안전성 체크
+                bool retry_safe = true;
+                for (unsigned int i = 0; i < q_result.rows(); i++) {
+                    double change = std::abs(q_result(i) - current_joint_positions_[i]);
+                    if (change > 0.8) { // 0.8 라디안 제한
+                        retry_safe = false;
+                        break;
+                    }
+                }
+                
+                if (retry_safe) {
+                    RCLCPP_INFO(this->get_logger(), "✅ IK succeeded with home position initial guess!");
+                    sendJointTrajectory(q_result);
+                } else {
+                    RCLCPP_ERROR(this->get_logger(), "❌ Even home position solution has unsafe joint changes");
+                }
+            } else {
+                RCLCPP_ERROR(this->get_logger(), "❌ IK failed even with home position: %d", retry_result);
             }
         }
     }
